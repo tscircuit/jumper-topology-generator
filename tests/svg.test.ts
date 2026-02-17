@@ -1,12 +1,55 @@
-import { expect, test } from "bun:test"                                                             
-                                                                                                                           
- const testSvg = `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">                                       
-   <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />                                            
- </svg>`                                                                                                                  
-                                                                                                                           
- test("svg snapshot example", async () => {                                                                                
-   // First run will create the snapshot                                                                                   
-   // Subsequent runs will compare against the saved snapshot                                                              
-   await expect(testSvg).toMatchSvgSnapshot(import.meta.path)                                                   
- })                                                                                                                        
- 
+import { expect, test } from "bun:test"
+import { getSvgFromGraphicsObject } from "graphics-debug"
+import {
+  generate0603JumperHyperGraph,
+  visualizeJumperHyperGraph,
+} from "../lib/index"
+
+test("0603 jumper topology snapshot: horizontal 3x2", async () => {
+  const graph = generate0603JumperHyperGraph({
+    cols: 3,
+    rows: 2,
+    orientation: "horizontal",
+  })
+
+  expect(graph.jumperRegions).toHaveLength(6)
+  expect(graph.topLayerRegions.length).toBeGreaterThan(0)
+
+  await expect(visualizeJumperHyperGraph(graph)).toMatchGraphicsSvg(
+    import.meta.path,
+    {
+      svgName: "0603-horizontal-3x2",
+    },
+  )
+})
+
+test("0603 jumper topology snapshot: vertical 2x2", async () => {
+  const graph = generate0603JumperHyperGraph({
+    cols: 2,
+    rows: 2,
+    orientation: "vertical",
+    pitchX: 2.0,
+    pitchY: 2.0,
+  })
+
+  expect(graph.jumperRegions).toHaveLength(4)
+  expect(graph.ports.length).toBeGreaterThan(0)
+
+  await expect(visualizeJumperHyperGraph(graph)).toMatchGraphicsSvg(
+    import.meta.path,
+    {
+      svgName: "0603-vertical-2x2",
+    },
+  )
+})
+
+test("0603 jumper topology snapshot: svg export 2x1", async () => {
+  const graph = generate0603JumperHyperGraph({
+    cols: 2,
+    rows: 1,
+    orientation: "horizontal",
+  })
+
+  const svg = getSvgFromGraphicsObject(visualizeJumperHyperGraph(graph))
+  await expect(svg).toMatchSvgSnapshot(import.meta.path, "0603-svg-export-2x1")
+})

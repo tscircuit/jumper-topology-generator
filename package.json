@@ -14,5 +14,8 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@tscircuit/find-convex-regions": "^0.0.1"
   }
 }
