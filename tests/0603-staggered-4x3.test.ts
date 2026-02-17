@@ -11,7 +11,7 @@ test("0603-staggered-4x3", async () => {
     pattern: "staggered",
     staggerAxis: "x",
     staggerOffset: 1.0,
-    colSpacing: 2.4,
+    colSpacing: 2.8,
     rowSpacing: 1.9,
     concavityTolerance: 0.3,
     orientation: "horizontal",
