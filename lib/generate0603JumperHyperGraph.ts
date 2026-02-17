@@ -35,7 +35,7 @@ export const generate0603JumperHyperGraph = (
   const convexSolver = new ConvexRegionsSolver({
     bounds: pattern.bounds,
     rects,
-    clearance: options.clearance,
+    clearance: 0,
     concavityTolerance: options.concavityTolerance,
   })
   convexSolver.solve()
