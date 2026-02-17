@@ -1,9 +1,8 @@
 import type { Point } from "@tscircuit/find-convex-regions"
 import type { JPort, JRegion } from "@tscircuit/hypergraph"
 import {
-  avgPoint,
+  almostEqual,
   boundsToPolygon,
-  distSquared,
   pointsEqual,
   toBounds,
   toCenter,
@@ -64,6 +63,7 @@ export const createJumperRegions = (
 
 export const createTopLayerPorts = (
   topLayerRegions: JRegion[],
+  portSpacing: number,
   tolerance = 1e-5,
 ): JPort[] => {
   const ports: JPort[] = []
@@ -77,97 +77,170 @@ export const createTopLayerPorts = (
       const regionB = topLayerRegions[j]
       if (!regionB?.d.polygon) continue
 
-      let sharedMidpoint: Point | null = null
+      const sharedEdges = getSharedBoundaryEdges(regionA, regionB, tolerance)
+      for (const edge of sharedEdges) {
+        const edgeLength = getSegmentLength(edge)
+        const intervalCount = Math.floor(edgeLength / portSpacing)
+        const portCount = intervalCount - 1
+        if (portCount < 1) continue
 
-      for (let ai = 0; ai < regionA.d.polygon.length; ai++) {
-        const a1 = regionA.d.polygon[ai]
-        const a2 = regionA.d.polygon[(ai + 1) % regionA.d.polygon.length]
-        if (!a1 || !a2) continue
+        for (let k = 0; k < portCount; k++) {
+          const t = (k + 1) / (portCount + 1)
+          const point = pointAlongSegment(edge, t)
 
-        for (let bi = 0; bi < regionB.d.polygon.length; bi++) {
-          const b1 = regionB.d.polygon[bi]
-          const b2 = regionB.d.polygon[(bi + 1) % regionB.d.polygon.length]
-          if (!b1 || !b2) continue
-
-          if (
-            pointsEqual(a1, b2, tolerance) &&
-            pointsEqual(a2, b1, tolerance)
-          ) {
-            sharedMidpoint = avgPoint(a1, a2)
-            break
-          }
+          ports.push({
+            portId: `tp_${nextPort++}`,
+            region1: regionA,
+            region2: regionB,
+            d: {
+              x: point.x,
+              y: point.y,
+            },
+          })
         }
-
-        if (sharedMidpoint) break
       }
-
-      if (!sharedMidpoint) continue
-
-      ports.push({
-        portId: `tp_${nextPort++}`,
-        region1: regionA,
-        region2: regionB,
-        d: {
-          x: sharedMidpoint.x,
-          y: sharedMidpoint.y,
-        },
-      })
     }
   }
 
   return ports
 }
 
-const getClosestTopLayerRegion = (
-  topLayerRegions: JRegion[],
-  point: Point,
-): JRegion => {
-  const initial = topLayerRegions[0]
-  if (!initial) {
-    throw new Error("No top-layer regions were generated")
-  }
+type Segment = {
+  start: Point
+  end: Point
+}
 
-  let closest = initial
-  let closestScore = Number.POSITIVE_INFINITY
+const getSegmentLength = (segment: Segment): number => {
+  const dx = segment.end.x - segment.start.x
+  const dy = segment.end.y - segment.start.y
+  return Math.hypot(dx, dy)
+}
 
-  for (const region of topLayerRegions) {
-    const score = distSquared(region.d.center, point)
-    if (score < closestScore) {
-      closest = region
-      closestScore = score
+const pointAlongSegment = (segment: Segment, t: number): Point => ({
+  x: segment.start.x + (segment.end.x - segment.start.x) * t,
+  y: segment.start.y + (segment.end.y - segment.start.y) * t,
+})
+
+const getSharedBoundaryEdges = (
+  regionA: JRegion,
+  regionB: JRegion,
+  tolerance: number,
+): Segment[] => {
+  const edges: Segment[] = []
+  if (!regionA.d.polygon || !regionB.d.polygon) return edges
+
+  for (let ai = 0; ai < regionA.d.polygon.length; ai++) {
+    const a1 = regionA.d.polygon[ai]
+    const a2 = regionA.d.polygon[(ai + 1) % regionA.d.polygon.length]
+    if (!a1 || !a2) continue
+
+    for (let bi = 0; bi < regionB.d.polygon.length; bi++) {
+      const b1 = regionB.d.polygon[bi]
+      const b2 = regionB.d.polygon[(bi + 1) % regionB.d.polygon.length]
+      if (!b1 || !b2) continue
+
+      const overlap = getCollinearOverlap(
+        { start: a1, end: a2 },
+        { start: b1, end: b2 },
+        tolerance,
+      )
+      if (!overlap) continue
+
+      const alreadyPresent = edges.some((edge) =>
+        segmentsEqual(edge, overlap, tolerance),
+      )
+      if (!alreadyPresent) {
+        edges.push(overlap)
+      }
     }
   }
 
-  return closest
+  return edges
+}
+
+const segmentsEqual = (a: Segment, b: Segment, tolerance: number): boolean =>
+  (pointsEqual(a.start, b.start, tolerance) &&
+    pointsEqual(a.end, b.end, tolerance)) ||
+  (pointsEqual(a.start, b.end, tolerance) &&
+    pointsEqual(a.end, b.start, tolerance))
+
+const getCollinearOverlap = (
+  a: Segment,
+  b: Segment,
+  tolerance: number,
+): Segment | null => {
+  const av = {
+    x: a.end.x - a.start.x,
+    y: a.end.y - a.start.y,
+  }
+  const bv = {
+    x: b.end.x - b.start.x,
+    y: b.end.y - b.start.y,
+  }
+  const aLenSq = av.x ** 2 + av.y ** 2
+  if (aLenSq <= tolerance ** 2) return null
+
+  const crossAB = av.x * bv.y - av.y * bv.x
+  if (!almostEqual(crossAB, 0, tolerance)) return null
+
+  const bStartOffset = {
+    x: b.start.x - a.start.x,
+    y: b.start.y - a.start.y,
+  }
+  const bEndOffset = {
+    x: b.end.x - a.start.x,
+    y: b.end.y - a.start.y,
+  }
+  const crossStart = av.x * bStartOffset.y - av.y * bStartOffset.x
+  const crossEnd = av.x * bEndOffset.y - av.y * bEndOffset.x
+  if (
+    !almostEqual(crossStart, 0, tolerance) ||
+    !almostEqual(crossEnd, 0, tolerance)
+  ) {
+    return null
+  }
+
+  const tBStart = (bStartOffset.x * av.x + bStartOffset.y * av.y) / aLenSq
+  const tBEnd = (bEndOffset.x * av.x + bEndOffset.y * av.y) / aLenSq
+  const overlapStart = Math.max(0, Math.min(tBStart, tBEnd))
+  const overlapEnd = Math.min(1, Math.max(tBStart, tBEnd))
+  const minParamLength = tolerance / Math.sqrt(aLenSq)
+
+  if (overlapEnd - overlapStart <= minParamLength) return null
+
+  return {
+    start: pointAlongSegment(a, overlapStart),
+    end: pointAlongSegment(a, overlapEnd),
+  }
 }
 
 export const createJumperPorts = (
-  jumpers: JumperPlacement[],
   jumperRegions: JRegion[],
   topLayerRegions: JRegion[],
+  tolerance = 1e-5,
 ): JPort[] => {
   const ports: JPort[] = []
   let nextPort = 0
 
-  for (let i = 0; i < jumpers.length; i++) {
-    const jumper = jumpers[i]
-    const jumperRegion = jumperRegions[i]
-    if (!jumper || !jumperRegion) continue
-
-    for (const padCenter of jumper.padCenters) {
-      const nearestTopLayerRegion = getClosestTopLayerRegion(
-        topLayerRegions,
-        padCenter,
+  for (const jumperRegion of jumperRegions) {
+    for (const topRegion of topLayerRegions) {
+      const sharedEdges = getSharedBoundaryEdges(
+        jumperRegion,
+        topRegion,
+        tolerance,
       )
-      ports.push({
-        portId: `jp_${nextPort++}`,
-        region1: jumperRegion,
-        region2: nearestTopLayerRegion,
-        d: {
-          x: padCenter.x,
-          y: padCenter.y,
-        },
-      })
+      for (const edge of sharedEdges) {
+        const midpoint = pointAlongSegment(edge, 0.5)
+        ports.push({
+          portId: `jp_${nextPort++}`,
+          region1: jumperRegion,
+          region2: topRegion,
+          d: {
+            x: midpoint.x,
+            y: midpoint.y,
+          },
+        })
+      }
     }
   }
 

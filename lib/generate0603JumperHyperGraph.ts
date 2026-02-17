@@ -52,12 +52,11 @@ export const generate0603JumperHyperGraph = (
     padHeight: options.padHeight,
   })
 
-  const topLayerPorts = createTopLayerPorts(topLayerRegions)
-  const jumperPorts = createJumperPorts(
-    pattern.jumpers,
-    jumperRegions,
+  const topLayerPorts = createTopLayerPorts(
     topLayerRegions,
+    options.portSpacing,
   )
+  const jumperPorts = createJumperPorts(jumperRegions, topLayerRegions)
   const ports = [...topLayerPorts, ...jumperPorts]
 
   attachPortsToRegions(ports)

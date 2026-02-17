@@ -24,6 +24,7 @@ export interface Generate0603JumperHyperGraphOptions {
   concavityTolerance?: number
   boundsPadding?: number
   orientation?: JumperOrientation
+  portSpacing?: number
 }
 
 export interface Resolved0603GridOptions {
@@ -43,6 +44,7 @@ export interface Resolved0603GridOptions {
   concavityTolerance: number
   boundsPadding: number
   orientation: JumperOrientation
+  portSpacing: number
 }
 
 export interface JumperPlacement {

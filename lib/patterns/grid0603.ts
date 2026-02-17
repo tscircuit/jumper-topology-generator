@@ -62,6 +62,7 @@ const DEFAULT_0603_GRID_OPTIONS: Omit<
   concavityTolerance: 0.3,
   boundsPadding: 1.2,
   orientation: "horizontal",
+  portSpacing: 0.25,
 }
 
 export const resolve0603GridOptions = (
@@ -115,10 +116,15 @@ export const resolve0603GridOptions = (
     concavityTolerance:
       input.concavityTolerance ?? DEFAULT_0603_GRID_OPTIONS.concavityTolerance,
     clearance: resolvedClearance,
+    portSpacing: input.portSpacing ?? DEFAULT_0603_GRID_OPTIONS.portSpacing,
   }
 
   if (options.cols <= 0 || options.rows <= 0) {
     throw new Error("rows and cols must be > 0")
+  }
+
+  if (!Number.isFinite(options.portSpacing) || options.portSpacing <= 0) {
+    throw new Error("portSpacing must be > 0")
   }
 
   return options
