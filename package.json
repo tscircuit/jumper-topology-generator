@@ -16,6 +16,6 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@tscircuit/find-convex-regions": "^0.0.1"
+    "@tscircuit/find-convex-regions": "^0.0.3"
   }
 }

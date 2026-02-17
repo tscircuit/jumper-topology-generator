@@ -25,6 +25,25 @@ const getJumperSizeAlongAxis = (
   return axis === "x" ? verticalSizeX : verticalSizeY
 }
 
+const getJumperBodySize = (
+  orientation: Resolved0603GridOptions["orientation"],
+  padWidth: number,
+  padHeight: number,
+  padGap: number,
+): { x: number; y: number } => {
+  if (orientation === "horizontal") {
+    return {
+      x: padGap + padWidth * 2,
+      y: padHeight,
+    }
+  }
+
+  return {
+    x: padHeight,
+    y: padGap + padWidth * 2,
+  }
+}
+
 const DEFAULT_0603_GRID_OPTIONS: Omit<
   Resolved0603GridOptions,
   "cols" | "rows"
@@ -40,7 +59,7 @@ const DEFAULT_0603_GRID_OPTIONS: Omit<
   padGap: 0.35,
   viaDiameter: 0.3,
   clearance: 0.2,
-  concavityTolerance: 0.8,
+  concavityTolerance: 0.3,
   boundsPadding: 1.2,
   orientation: "horizontal",
 }
@@ -56,11 +75,20 @@ export const resolve0603GridOptions = (
   const resolvedPadHeight =
     input.padHeight ?? DEFAULT_0603_GRID_OPTIONS.padHeight
   const resolvedPadGap = input.padGap ?? DEFAULT_0603_GRID_OPTIONS.padGap
+  const resolvedClearance =
+    input.clearance ?? DEFAULT_0603_GRID_OPTIONS.clearance
 
   const resolvedPitchX =
     input.colSpacing ?? input.pitchX ?? DEFAULT_0603_GRID_OPTIONS.pitchX
   const resolvedPitchY =
     input.rowSpacing ?? input.pitchY ?? DEFAULT_0603_GRID_OPTIONS.pitchY
+  const minBodySize = getJumperBodySize(
+    resolvedOrientation,
+    resolvedPadWidth,
+    resolvedPadHeight,
+    resolvedPadGap,
+  )
+  const minInterJumperGap = resolvedClearance
   const resolvedDefaultStaggerOffset =
     getJumperSizeAlongAxis(
       resolvedOrientation,
@@ -77,8 +105,8 @@ export const resolve0603GridOptions = (
     ...input,
     orientation: resolvedOrientation,
     staggerAxis: resolvedStaggerAxis,
-    pitchX: resolvedPitchX,
-    pitchY: resolvedPitchY,
+    pitchX: Math.max(resolvedPitchX, minBodySize.x + minInterJumperGap),
+    pitchY: Math.max(resolvedPitchY, minBodySize.y + minInterJumperGap),
     padWidth: resolvedPadWidth,
     padHeight: resolvedPadHeight,
     padGap: resolvedPadGap,
@@ -86,6 +114,7 @@ export const resolve0603GridOptions = (
     staggerOffsetX: resolvedStaggerOffset,
     concavityTolerance:
       input.concavityTolerance ?? DEFAULT_0603_GRID_OPTIONS.concavityTolerance,
+    clearance: resolvedClearance,
   }
 
   if (options.cols <= 0 || options.rows <= 0) {

@@ -1,4 +1,4 @@
-import { ConvexRegionsSolver } from "@tscircuit/find-convex-regions"
+import { ConvexRegionsSolver, type Rect } from "@tscircuit/find-convex-regions"
 import { generate0603Pattern } from "./patterns"
 import { resolve0603GridOptions } from "./patterns/grid0603"
 import {
@@ -18,10 +18,27 @@ export const generate0603JumperHyperGraph = (
 ): JumperHyperGraph => {
   const options = resolve0603GridOptions(input)
   const pattern = generate0603Pattern(options)
+  const rects: Rect[] = pattern.jumpers.map((jumper) => {
+    const width =
+      options.orientation === "horizontal"
+        ? options.padGap + options.padWidth * 2
+        : options.padHeight
+    const height =
+      options.orientation === "horizontal"
+        ? options.padHeight
+        : options.padGap + options.padWidth * 2
+
+    return {
+      center: jumper.center,
+      width,
+      height,
+      ccwRotation: 0,
+    }
+  })
 
   const convexSolver = new ConvexRegionsSolver({
     bounds: pattern.bounds,
-    vias: pattern.vias,
+    rects,
     clearance: options.clearance,
     concavityTolerance: options.concavityTolerance,
   })

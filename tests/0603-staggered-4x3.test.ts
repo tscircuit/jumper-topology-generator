@@ -13,7 +13,7 @@ test("0603-staggered-4x3", async () => {
     staggerOffset: 1.0,
     colSpacing: 2.4,
     rowSpacing: 1.9,
-    concavityTolerance: 100,
+    concavityTolerance: 0.3,
     orientation: "horizontal",
   })
 
