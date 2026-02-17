@@ -18,23 +18,19 @@ export const generate0603JumperHyperGraph = (
 ): JumperHyperGraph => {
   const options = resolve0603GridOptions(input)
   const pattern = generate0603Pattern(options)
-  const rects: Rect[] = pattern.jumpers.map((jumper) => {
-    const width =
-      options.orientation === "horizontal"
-        ? options.padGap + options.padWidth * 2
-        : options.padHeight
-    const height =
-      options.orientation === "horizontal"
-        ? options.padHeight
-        : options.padGap + options.padWidth * 2
+  const padWidth =
+    options.orientation === "horizontal" ? options.padWidth : options.padHeight
+  const padHeight =
+    options.orientation === "horizontal" ? options.padHeight : options.padWidth
 
-    return {
-      center: jumper.center,
-      width,
-      height,
+  const rects: Rect[] = pattern.jumpers.flatMap((jumper) =>
+    jumper.padCenters.map((center) => ({
+      center,
+      width: padWidth,
+      height: padHeight,
       ccwRotation: 0,
-    }
-  })
+    })),
+  )
 
   const convexSolver = new ConvexRegionsSolver({
     bounds: pattern.bounds,
