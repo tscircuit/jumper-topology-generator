@@ -4,9 +4,12 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@tscircuit/hypergraph": "^0.0.25",
     "@types/bun": "latest",
     "bun-match-svg": "^0.0.15",
-    "graphics-debug": "^0.0.85"
+    "graphics-debug": "^0.0.85",
+    "react-cosmos": "^7.1.1",
+    "react-cosmos-plugin-vite": "^7.1.1"
   },
   "peerDependencies": {
     "typescript": "^5"
