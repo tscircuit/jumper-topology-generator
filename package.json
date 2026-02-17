@@ -9,7 +9,8 @@
     "bun-match-svg": "^0.0.15",
     "graphics-debug": "^0.0.85",
     "react-cosmos": "^7.1.1",
-    "react-cosmos-plugin-vite": "^7.1.1"
+    "react-cosmos-plugin-vite": "^7.1.1",
+    "tsup": "^8.5.1"
   },
   "peerDependencies": {
     "typescript": "^5"
