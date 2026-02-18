@@ -1,16 +1,29 @@
 {
-  "name": "jumper-topology-generator",
-  "module": "index.ts",
+  "name": "@tscircuit/jumper-topology-generator",
+  "main": "dist/index.js",
   "type": "module",
-  "private": true,
+  "scripts": {
+    "start": "cosmos",
+    "build": "tsup ./lib/index.ts --format esm --dts --outdir dist",
+    "cosmos:export": "cosmos-export"
+  },
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
     "@tscircuit/hypergraph": "^0.0.25",
     "@types/bun": "latest",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
     "bun-match-svg": "^0.0.15",
     "graphics-debug": "^0.0.85",
+    "react": "^19.1.1",
     "react-cosmos": "^7.1.1",
     "react-cosmos-plugin-vite": "^7.1.1",
-    "tsup": "^8.5.1"
+    "react-dom": "^19.1.1",
+    "tsup": "^8.5.1",
+    "vite": "^7.1.5"
   },
   "peerDependencies": {
     "typescript": "^5"

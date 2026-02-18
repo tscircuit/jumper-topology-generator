@@ -1,0 +1,4 @@
+{
+  "fixturesDir": "fixtures",
+  "plugins": ["react-cosmos-plugin-vite"]
+}
