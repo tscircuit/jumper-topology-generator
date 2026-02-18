@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "cosmos",
-    "build": "tsup ./lib/index.ts --format esm --dts --outdir dist",
+    "build": "tsup ./lib/index.ts --format esm --dts --outDir dist",
     "cosmos:export": "cosmos-export"
   },
   "files": [
