@@ -17,7 +17,7 @@ test("0603-staggered-4x3", async () => {
     orientation: "horizontal",
   })
 
-  expect(graph.jumperRegions).toHaveLength(12)
+  expect(graph.jumperRegions).toHaveLength(36)
   expect(graph.topLayerRegions.length).toBeGreaterThan(0)
 
   await expect(visualizeJumperHyperGraph(graph)).toMatchGraphicsSvg(

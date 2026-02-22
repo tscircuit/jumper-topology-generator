@@ -31,34 +31,81 @@ export const createJumperRegions = (
     "orientation" | "padWidth" | "padHeight"
   >,
 ): JRegion[] =>
-  jumpers.map((jumper) => {
+  jumpers.flatMap((jumper) => {
     const [p1, p2] = jumper.padCenters
-    const bounds =
+    const padXHalf =
+      options.orientation === "horizontal"
+        ? options.padWidth / 2
+        : options.padHeight / 2
+    const padYHalf =
+      options.orientation === "horizontal"
+        ? options.padHeight / 2
+        : options.padWidth / 2
+
+    const pad1Bounds = {
+      minX: p1.x - padXHalf,
+      maxX: p1.x + padXHalf,
+      minY: p1.y - padYHalf,
+      maxY: p1.y + padYHalf,
+    }
+    const pad2Bounds = {
+      minX: p2.x - padXHalf,
+      maxX: p2.x + padXHalf,
+      minY: p2.y - padYHalf,
+      maxY: p2.y + padYHalf,
+    }
+    const bridgeXHalf = padXHalf / 2
+    const bridgeYHalf = padYHalf / 2
+    const bridgeBounds =
       options.orientation === "horizontal"
         ? {
-            minX: p1.x - options.padWidth / 2,
-            maxX: p2.x + options.padWidth / 2,
-            minY: jumper.center.y - options.padHeight / 2,
-            maxY: jumper.center.y + options.padHeight / 2,
+            minX: Math.min(p1.x, p2.x),
+            maxX: Math.max(p1.x, p2.x),
+            minY: jumper.center.y - bridgeYHalf,
+            maxY: jumper.center.y + bridgeYHalf,
           }
         : {
-            minX: jumper.center.x - options.padHeight / 2,
-            maxX: jumper.center.x + options.padHeight / 2,
-            minY: p1.y - options.padWidth / 2,
-            maxY: p2.y + options.padWidth / 2,
+            minX: jumper.center.x - bridgeXHalf,
+            maxX: jumper.center.x + bridgeXHalf,
+            minY: Math.min(p1.y, p2.y),
+            maxY: Math.max(p1.y, p2.y),
           }
 
-    return {
-      regionId: jumper.jumperId,
-      ports: [],
-      d: {
-        bounds,
-        center: jumper.center,
-        polygon: boundsToPolygon(bounds),
-        isPad: true,
-        isThroughJumper: true,
+    return [
+      {
+        regionId: `${jumper.jumperId}_pad1`,
+        ports: [],
+        d: {
+          bounds: pad1Bounds,
+          center: p1,
+          polygon: boundsToPolygon(pad1Bounds),
+          isPad: true,
+          isThroughJumper: false,
+        },
       },
-    }
+      {
+        regionId: `${jumper.jumperId}_bridge`,
+        ports: [],
+        d: {
+          bounds: bridgeBounds,
+          center: jumper.center,
+          polygon: boundsToPolygon(bridgeBounds),
+          isPad: false,
+          isThroughJumper: true,
+        },
+      },
+      {
+        regionId: `${jumper.jumperId}_pad2`,
+        ports: [],
+        d: {
+          bounds: pad2Bounds,
+          center: p2,
+          polygon: boundsToPolygon(pad2Bounds),
+          isPad: true,
+          isThroughJumper: false,
+        },
+      },
+    ]
   })
 
 export const createTopLayerPorts = (
@@ -158,6 +205,94 @@ const getSharedBoundaryEdges = (
   return edges
 }
 
+const mergeCollinearConnectedSegments = (
+  segments: Segment[],
+  tolerance: number,
+): Segment[] => {
+  const merged: Segment[] = []
+
+  for (const segment of segments) {
+    let candidate = segment
+    let didMerge = true
+
+    while (didMerge) {
+      didMerge = false
+
+      for (let i = 0; i < merged.length; i++) {
+        const existing = merged[i]
+        if (!existing) continue
+
+        const next = mergeTwoCollinearSegments(candidate, existing, tolerance)
+        if (!next) continue
+
+        candidate = next
+        merged.splice(i, 1)
+        didMerge = true
+        break
+      }
+    }
+
+    merged.push(candidate)
+  }
+
+  return merged
+}
+
+const mergeTwoCollinearSegments = (
+  a: Segment,
+  b: Segment,
+  tolerance: number,
+): Segment | null => {
+  const av = {
+    x: a.end.x - a.start.x,
+    y: a.end.y - a.start.y,
+  }
+  const bv = {
+    x: b.end.x - b.start.x,
+    y: b.end.y - b.start.y,
+  }
+  const aLenSq = av.x ** 2 + av.y ** 2
+  if (aLenSq <= tolerance ** 2) return null
+
+  const crossAB = av.x * bv.y - av.y * bv.x
+  if (!almostEqual(crossAB, 0, tolerance)) return null
+
+  const bStartOffset = {
+    x: b.start.x - a.start.x,
+    y: b.start.y - a.start.y,
+  }
+  const bEndOffset = {
+    x: b.end.x - a.start.x,
+    y: b.end.y - a.start.y,
+  }
+  const crossStart = av.x * bStartOffset.y - av.y * bStartOffset.x
+  const crossEnd = av.x * bEndOffset.y - av.y * bEndOffset.x
+  if (
+    !almostEqual(crossStart, 0, tolerance) ||
+    !almostEqual(crossEnd, 0, tolerance)
+  ) {
+    return null
+  }
+
+  const tBStart = (bStartOffset.x * av.x + bStartOffset.y * av.y) / aLenSq
+  const tBEnd = (bEndOffset.x * av.x + bEndOffset.y * av.y) / aLenSq
+  const bMin = Math.min(tBStart, tBEnd)
+  const bMax = Math.max(tBStart, tBEnd)
+  const minParamLength = tolerance / Math.sqrt(aLenSq)
+
+  if (bMin > 1 + minParamLength || bMax < 0 - minParamLength) {
+    return null
+  }
+
+  const mergedStart = Math.min(0, bMin)
+  const mergedEnd = Math.max(1, bMax)
+
+  return {
+    start: pointAlongSegment(a, mergedStart),
+    end: pointAlongSegment(a, mergedEnd),
+  }
+}
+
 const segmentsEqual = (a: Segment, b: Segment, tolerance: number): boolean =>
   (pointsEqual(a.start, b.start, tolerance) &&
     pointsEqual(a.end, b.end, tolerance)) ||
@@ -221,15 +356,26 @@ export const createJumperPorts = (
 ): JPort[] => {
   const ports: JPort[] = []
   let nextPort = 0
+  let nextInternalPort = 0
 
-  for (const jumperRegion of jumperRegions) {
+  const padRegions = jumperRegions.filter((region) => region.d.isPad)
+  const throughJumperRegions = jumperRegions.filter(
+    (region) => region.d.isThroughJumper && !region.d.isPad,
+  )
+
+  for (const jumperRegion of padRegions) {
     for (const topRegion of topLayerRegions) {
       const sharedEdges = getSharedBoundaryEdges(
         jumperRegion,
         topRegion,
         tolerance,
       )
-      for (const edge of sharedEdges) {
+      const sharedSegments = mergeCollinearConnectedSegments(
+        sharedEdges,
+        tolerance,
+      )
+
+      for (const edge of sharedSegments) {
         const midpoint = pointAlongSegment(edge, 0.5)
         ports.push({
           portId: `jp_${nextPort++}`,
@@ -244,7 +390,46 @@ export const createJumperPorts = (
     }
   }
 
+  for (const throughJumperRegion of throughJumperRegions) {
+    for (const padRegion of padRegions) {
+      const overlap = getBoundsOverlap(
+        throughJumperRegion.d.bounds,
+        padRegion.d.bounds,
+        tolerance,
+      )
+      if (!overlap) continue
+
+      const midpoint = toCenter(overlap)
+      ports.push({
+        portId: `jip_${nextInternalPort++}`,
+        region1: padRegion,
+        region2: throughJumperRegion,
+        d: {
+          x: midpoint.x,
+          y: midpoint.y,
+        },
+      })
+    }
+  }
+
   return ports
+}
+
+const getBoundsOverlap = (
+  a: JRegion["d"]["bounds"],
+  b: JRegion["d"]["bounds"],
+  tolerance: number,
+): JRegion["d"]["bounds"] | null => {
+  const minX = Math.max(a.minX, b.minX)
+  const maxX = Math.min(a.maxX, b.maxX)
+  const minY = Math.max(a.minY, b.minY)
+  const maxY = Math.min(a.maxY, b.maxY)
+
+  if (maxX < minX - tolerance || maxY < minY - tolerance) {
+    return null
+  }
+
+  return { minX, maxX, minY, maxY }
 }
 
 export const attachPortsToRegions = (ports: JPort[]): void => {
