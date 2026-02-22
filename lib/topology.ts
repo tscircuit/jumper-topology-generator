@@ -205,6 +205,94 @@ const getSharedBoundaryEdges = (
   return edges
 }
 
+const mergeCollinearConnectedSegments = (
+  segments: Segment[],
+  tolerance: number,
+): Segment[] => {
+  const merged: Segment[] = []
+
+  for (const segment of segments) {
+    let candidate = segment
+    let didMerge = true
+
+    while (didMerge) {
+      didMerge = false
+
+      for (let i = 0; i < merged.length; i++) {
+        const existing = merged[i]
+        if (!existing) continue
+
+        const next = mergeTwoCollinearSegments(candidate, existing, tolerance)
+        if (!next) continue
+
+        candidate = next
+        merged.splice(i, 1)
+        didMerge = true
+        break
+      }
+    }
+
+    merged.push(candidate)
+  }
+
+  return merged
+}
+
+const mergeTwoCollinearSegments = (
+  a: Segment,
+  b: Segment,
+  tolerance: number,
+): Segment | null => {
+  const av = {
+    x: a.end.x - a.start.x,
+    y: a.end.y - a.start.y,
+  }
+  const bv = {
+    x: b.end.x - b.start.x,
+    y: b.end.y - b.start.y,
+  }
+  const aLenSq = av.x ** 2 + av.y ** 2
+  if (aLenSq <= tolerance ** 2) return null
+
+  const crossAB = av.x * bv.y - av.y * bv.x
+  if (!almostEqual(crossAB, 0, tolerance)) return null
+
+  const bStartOffset = {
+    x: b.start.x - a.start.x,
+    y: b.start.y - a.start.y,
+  }
+  const bEndOffset = {
+    x: b.end.x - a.start.x,
+    y: b.end.y - a.start.y,
+  }
+  const crossStart = av.x * bStartOffset.y - av.y * bStartOffset.x
+  const crossEnd = av.x * bEndOffset.y - av.y * bEndOffset.x
+  if (
+    !almostEqual(crossStart, 0, tolerance) ||
+    !almostEqual(crossEnd, 0, tolerance)
+  ) {
+    return null
+  }
+
+  const tBStart = (bStartOffset.x * av.x + bStartOffset.y * av.y) / aLenSq
+  const tBEnd = (bEndOffset.x * av.x + bEndOffset.y * av.y) / aLenSq
+  const bMin = Math.min(tBStart, tBEnd)
+  const bMax = Math.max(tBStart, tBEnd)
+  const minParamLength = tolerance / Math.sqrt(aLenSq)
+
+  if (bMin > 1 + minParamLength || bMax < 0 - minParamLength) {
+    return null
+  }
+
+  const mergedStart = Math.min(0, bMin)
+  const mergedEnd = Math.max(1, bMax)
+
+  return {
+    start: pointAlongSegment(a, mergedStart),
+    end: pointAlongSegment(a, mergedEnd),
+  }
+}
+
 const segmentsEqual = (a: Segment, b: Segment, tolerance: number): boolean =>
   (pointsEqual(a.start, b.start, tolerance) &&
     pointsEqual(a.end, b.end, tolerance)) ||
@@ -282,7 +370,12 @@ export const createJumperPorts = (
         topRegion,
         tolerance,
       )
-      for (const edge of sharedEdges) {
+      const sharedSegments = mergeCollinearConnectedSegments(
+        sharedEdges,
+        tolerance,
+      )
+
+      for (const edge of sharedSegments) {
         const midpoint = pointAlongSegment(edge, 0.5)
         ports.push({
           portId: `jp_${nextPort++}`,

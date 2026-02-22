@@ -111,6 +111,85 @@ const getSharedBoundaryEdges = (a: JRegion, b: JRegion): Segment[] => {
   return edges
 }
 
+const mergeCollinearConnectedSegments = (segments: Segment[]): Segment[] => {
+  const merged: Segment[] = []
+
+  for (const segment of segments) {
+    let candidate = segment
+    let didMerge = true
+
+    while (didMerge) {
+      didMerge = false
+
+      for (let i = 0; i < merged.length; i++) {
+        const existing = merged[i]
+        if (!existing) continue
+
+        const next = mergeTwoCollinearSegments(candidate, existing)
+        if (!next) continue
+
+        candidate = next
+        merged.splice(i, 1)
+        didMerge = true
+        break
+      }
+    }
+
+    merged.push(candidate)
+  }
+
+  return merged
+}
+
+const mergeTwoCollinearSegments = (a: Segment, b: Segment): Segment | null => {
+  const av = {
+    x: a.end.x - a.start.x,
+    y: a.end.y - a.start.y,
+  }
+  const bv = {
+    x: b.end.x - b.start.x,
+    y: b.end.y - b.start.y,
+  }
+  const aLenSq = av.x ** 2 + av.y ** 2
+  if (aLenSq <= tolerance ** 2) return null
+
+  const crossAB = av.x * bv.y - av.y * bv.x
+  if (!almostEqual(crossAB, 0)) return null
+
+  const bStartOffset = {
+    x: b.start.x - a.start.x,
+    y: b.start.y - a.start.y,
+  }
+  const bEndOffset = {
+    x: b.end.x - a.start.x,
+    y: b.end.y - a.start.y,
+  }
+  const crossStart = av.x * bStartOffset.y - av.y * bStartOffset.x
+  const crossEnd = av.x * bEndOffset.y - av.y * bEndOffset.x
+  if (!almostEqual(crossStart, 0) || !almostEqual(crossEnd, 0)) return null
+
+  const tBStart = (bStartOffset.x * av.x + bStartOffset.y * av.y) / aLenSq
+  const tBEnd = (bEndOffset.x * av.x + bEndOffset.y * av.y) / aLenSq
+  const bMin = Math.min(tBStart, tBEnd)
+  const bMax = Math.max(tBStart, tBEnd)
+  const minParamLength = tolerance / Math.sqrt(aLenSq)
+
+  if (bMin > 1 + minParamLength || bMax < 0 - minParamLength) {
+    return null
+  }
+
+  return {
+    start: {
+      x: a.start.x + (a.end.x - a.start.x) * Math.min(0, bMin),
+      y: a.start.y + (a.end.y - a.start.y) * Math.min(0, bMin),
+    },
+    end: {
+      x: a.start.x + (a.end.x - a.start.x) * Math.max(1, bMax),
+      y: a.start.y + (a.end.y - a.start.y) * Math.max(1, bMax),
+    },
+  }
+}
+
 test("smaller portSpacing creates more top-layer edge ports", () => {
   const sparse = generate0603JumperHyperGraph({
     cols: 3,
@@ -180,10 +259,11 @@ test("ports are only placed on shared edges and jumpers have one port per shared
     for (const topRegion of graph.topLayerRegions) {
       const sharedEdges = getSharedBoundaryEdges(jumperRegion, topRegion)
       if (sharedEdges.length === 0) continue
+      const sharedSegments = mergeCollinearConnectedSegments(sharedEdges)
 
       const key = `${jumperRegion.regionId}::${topRegion.regionId}`
       const actualPortCount = jumperEdgePortCount.get(key) ?? 0
-      expect(actualPortCount).toBe(sharedEdges.length)
+      expect(actualPortCount).toBe(sharedSegments.length)
     }
   }
 })
