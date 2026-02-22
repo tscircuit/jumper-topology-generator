@@ -67,8 +67,11 @@ export const generate0603JumperHyperGraph = (
     jumperLocations: pattern.jumpers.map((jumper, index) => ({
       center: jumper.center,
       orientation: jumper.orientation,
-      padRegions: [jumperRegions[index]].filter(
-        (region): region is NonNullable<typeof region> => Boolean(region),
+      padRegions: [
+        jumperRegions[index * 3],
+        jumperRegions[index * 3 + 2],
+      ].filter((region): region is NonNullable<typeof region> =>
+        Boolean(region),
       ),
     })),
     topLayerRegions,

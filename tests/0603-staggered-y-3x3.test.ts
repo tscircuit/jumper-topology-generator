@@ -21,7 +21,7 @@ test("0603-staggered-y-3x3", async () => {
     orientation: "vertical",
   })
 
-  expect(graph.jumperRegions).toHaveLength(9)
+  expect(graph.jumperRegions).toHaveLength(27)
   expect(graph.topLayerRegions.length).toBeGreaterThan(0)
 
   for (let i = 0; i < graph.jumperRegions.length; i++) {
@@ -29,6 +29,12 @@ test("0603-staggered-y-3x3", async () => {
       const a = graph.jumperRegions[i]
       const b = graph.jumperRegions[j]
       if (!a || !b) continue
+      if (
+        a.regionId.split("_").slice(0, 3).join("_") ===
+        b.regionId.split("_").slice(0, 3).join("_")
+      ) {
+        continue
+      }
       expect(regionsTouchOrOverlap(a.d.bounds, b.d.bounds)).toBe(false)
     }
   }

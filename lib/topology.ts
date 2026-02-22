@@ -31,34 +31,81 @@ export const createJumperRegions = (
     "orientation" | "padWidth" | "padHeight"
   >,
 ): JRegion[] =>
-  jumpers.map((jumper) => {
+  jumpers.flatMap((jumper) => {
     const [p1, p2] = jumper.padCenters
-    const bounds =
+    const padXHalf =
+      options.orientation === "horizontal"
+        ? options.padWidth / 2
+        : options.padHeight / 2
+    const padYHalf =
+      options.orientation === "horizontal"
+        ? options.padHeight / 2
+        : options.padWidth / 2
+
+    const pad1Bounds = {
+      minX: p1.x - padXHalf,
+      maxX: p1.x + padXHalf,
+      minY: p1.y - padYHalf,
+      maxY: p1.y + padYHalf,
+    }
+    const pad2Bounds = {
+      minX: p2.x - padXHalf,
+      maxX: p2.x + padXHalf,
+      minY: p2.y - padYHalf,
+      maxY: p2.y + padYHalf,
+    }
+    const bridgeXHalf = padXHalf / 2
+    const bridgeYHalf = padYHalf / 2
+    const bridgeBounds =
       options.orientation === "horizontal"
         ? {
-            minX: p1.x - options.padWidth / 2,
-            maxX: p2.x + options.padWidth / 2,
-            minY: jumper.center.y - options.padHeight / 2,
-            maxY: jumper.center.y + options.padHeight / 2,
+            minX: Math.min(p1.x, p2.x),
+            maxX: Math.max(p1.x, p2.x),
+            minY: jumper.center.y - bridgeYHalf,
+            maxY: jumper.center.y + bridgeYHalf,
           }
         : {
-            minX: jumper.center.x - options.padHeight / 2,
-            maxX: jumper.center.x + options.padHeight / 2,
-            minY: p1.y - options.padWidth / 2,
-            maxY: p2.y + options.padWidth / 2,
+            minX: jumper.center.x - bridgeXHalf,
+            maxX: jumper.center.x + bridgeXHalf,
+            minY: Math.min(p1.y, p2.y),
+            maxY: Math.max(p1.y, p2.y),
           }
 
-    return {
-      regionId: jumper.jumperId,
-      ports: [],
-      d: {
-        bounds,
-        center: jumper.center,
-        polygon: boundsToPolygon(bounds),
-        isPad: true,
-        isThroughJumper: true,
+    return [
+      {
+        regionId: `${jumper.jumperId}_pad1`,
+        ports: [],
+        d: {
+          bounds: pad1Bounds,
+          center: p1,
+          polygon: boundsToPolygon(pad1Bounds),
+          isPad: true,
+          isThroughJumper: false,
+        },
       },
-    }
+      {
+        regionId: `${jumper.jumperId}_bridge`,
+        ports: [],
+        d: {
+          bounds: bridgeBounds,
+          center: jumper.center,
+          polygon: boundsToPolygon(bridgeBounds),
+          isPad: false,
+          isThroughJumper: true,
+        },
+      },
+      {
+        regionId: `${jumper.jumperId}_pad2`,
+        ports: [],
+        d: {
+          bounds: pad2Bounds,
+          center: p2,
+          polygon: boundsToPolygon(pad2Bounds),
+          isPad: true,
+          isThroughJumper: false,
+        },
+      },
+    ]
   })
 
 export const createTopLayerPorts = (
@@ -221,8 +268,14 @@ export const createJumperPorts = (
 ): JPort[] => {
   const ports: JPort[] = []
   let nextPort = 0
+  let nextInternalPort = 0
 
-  for (const jumperRegion of jumperRegions) {
+  const padRegions = jumperRegions.filter((region) => region.d.isPad)
+  const throughJumperRegions = jumperRegions.filter(
+    (region) => region.d.isThroughJumper && !region.d.isPad,
+  )
+
+  for (const jumperRegion of padRegions) {
     for (const topRegion of topLayerRegions) {
       const sharedEdges = getSharedBoundaryEdges(
         jumperRegion,
@@ -244,7 +297,46 @@ export const createJumperPorts = (
     }
   }
 
+  for (const throughJumperRegion of throughJumperRegions) {
+    for (const padRegion of padRegions) {
+      const overlap = getBoundsOverlap(
+        throughJumperRegion.d.bounds,
+        padRegion.d.bounds,
+        tolerance,
+      )
+      if (!overlap) continue
+
+      const midpoint = toCenter(overlap)
+      ports.push({
+        portId: `jip_${nextInternalPort++}`,
+        region1: padRegion,
+        region2: throughJumperRegion,
+        d: {
+          x: midpoint.x,
+          y: midpoint.y,
+        },
+      })
+    }
+  }
+
   return ports
+}
+
+const getBoundsOverlap = (
+  a: JRegion["d"]["bounds"],
+  b: JRegion["d"]["bounds"],
+  tolerance: number,
+): JRegion["d"]["bounds"] | null => {
+  const minX = Math.max(a.minX, b.minX)
+  const maxX = Math.min(a.maxX, b.maxX)
+  const minY = Math.max(a.minY, b.minY)
+  const maxY = Math.min(a.maxY, b.maxY)
+
+  if (maxX < minX - tolerance || maxY < minY - tolerance) {
+    return null
+  }
+
+  return { minX, maxX, minY, maxY }
 }
 
 export const attachPortsToRegions = (ports: JPort[]): void => {

@@ -144,6 +144,13 @@ test("ports are only placed on shared edges and jumpers have one port per shared
   })
 
   for (const port of graph.ports) {
+    if (port.portId.startsWith("jip_")) {
+      expect(port.region1.d.isPad).toBe(true)
+      expect(port.region2.d.isThroughJumper).toBe(true)
+      expect(port.region2.d.isPad).toBe(false)
+      continue
+    }
+
     const sharedEdges = getSharedBoundaryEdges(port.region1, port.region2)
     expect(sharedEdges.length).toBeGreaterThan(0)
 
@@ -153,13 +160,23 @@ test("ports are only placed on shared edges and jumpers have one port per shared
     expect(onSharedEdge).toBe(true)
   }
 
+  for (const port of graph.ports) {
+    if (!port.region1.d.isThroughJumper && !port.region2.d.isThroughJumper) {
+      continue
+    }
+
+    expect(port.region1.d.isPad || port.region2.d.isPad).toBe(true)
+  }
+
   const jumperEdgePortCount = new Map<string, number>()
   for (const port of graph.ports.filter((p) => p.portId.startsWith("jp_"))) {
     const key = `${port.region1.regionId}::${port.region2.regionId}`
     jumperEdgePortCount.set(key, (jumperEdgePortCount.get(key) ?? 0) + 1)
   }
 
-  for (const jumperRegion of graph.jumperRegions) {
+  for (const jumperRegion of graph.jumperRegions.filter(
+    (region) => region.d.isPad,
+  )) {
     for (const topRegion of graph.topLayerRegions) {
       const sharedEdges = getSharedBoundaryEdges(jumperRegion, topRegion)
       if (sharedEdges.length === 0) continue
