@@ -111,6 +111,82 @@ const getSharedBoundaryEdges = (a: JRegion, b: JRegion): Segment[] => {
   return edges
 }
 
+const mergePairIfCollinearAndTouching = (
+  a: Segment,
+  b: Segment,
+): Segment | null => {
+  const av = {
+    x: a.end.x - a.start.x,
+    y: a.end.y - a.start.y,
+  }
+  const aLenSq = av.x ** 2 + av.y ** 2
+  if (aLenSq <= tolerance ** 2) return null
+
+  const bStartOffset = {
+    x: b.start.x - a.start.x,
+    y: b.start.y - a.start.y,
+  }
+  const bEndOffset = {
+    x: b.end.x - a.start.x,
+    y: b.end.y - a.start.y,
+  }
+  const crossStart = av.x * bStartOffset.y - av.y * bStartOffset.x
+  const crossEnd = av.x * bEndOffset.y - av.y * bEndOffset.x
+  if (!almostEqual(crossStart, 0) || !almostEqual(crossEnd, 0)) return null
+
+  const tBStart = (bStartOffset.x * av.x + bStartOffset.y * av.y) / aLenSq
+  const tBEnd = (bEndOffset.x * av.x + bEndOffset.y * av.y) / aLenSq
+  const bMin = Math.min(tBStart, tBEnd)
+  const bMax = Math.max(tBStart, tBEnd)
+  const tolParam = tolerance / Math.sqrt(aLenSq)
+  if (Math.max(0, bMin) > Math.min(1, bMax) + tolParam) return null
+
+  const start = Math.min(0, bMin)
+  const end = Math.max(1, bMax)
+  return {
+    start: {
+      x: a.start.x + (a.end.x - a.start.x) * start,
+      y: a.start.y + (a.end.y - a.start.y) * start,
+    },
+    end: {
+      x: a.start.x + (a.end.x - a.start.x) * end,
+      y: a.start.y + (a.end.y - a.start.y) * end,
+    },
+  }
+}
+
+const mergeCollinearTouchingSegments = (segments: Segment[]): Segment[] => {
+  const merged = [...segments]
+  let didMerge = true
+
+  while (didMerge) {
+    didMerge = false
+    for (let i = 0; i < merged.length; i++) {
+      for (let j = i + 1; j < merged.length; j++) {
+        const a = merged[i]
+        const b = merged[j]
+        if (!a || !b) continue
+
+        const combined = mergePairIfCollinearAndTouching(a, b)
+        if (!combined) continue
+
+        merged[i] = combined
+        merged.splice(j, 1)
+        didMerge = true
+        break
+      }
+      if (didMerge) break
+    }
+  }
+
+  return merged
+}
+
+const segmentMidpoint = (segment: Segment): Point => ({
+  x: (segment.start.x + segment.end.x) / 2,
+  y: (segment.start.y + segment.end.y) / 2,
+})
+
 test("smaller portSpacing creates more top-layer edge ports", () => {
   const sparse = generate0603JumperHyperGraph({
     cols: 3,
@@ -135,7 +211,7 @@ test("smaller portSpacing creates more top-layer edge ports", () => {
   expect(denseTopLayerPorts.length).toBeGreaterThan(sparseTopLayerPorts.length)
 })
 
-test("ports are only placed on shared edges and jumpers have one port per shared edge", () => {
+test("ports are only placed on shared edges and jumpers have one port per touched top region", () => {
   const graph = generate0603JumperHyperGraph({
     cols: 2,
     rows: 2,
@@ -157,6 +233,23 @@ test("ports are only placed on shared edges and jumpers have one port per shared
   for (const port of graph.ports.filter((p) => p.portId.startsWith("jp_"))) {
     const key = `${port.region1.regionId}::${port.region2.regionId}`
     jumperEdgePortCount.set(key, (jumperEdgePortCount.get(key) ?? 0) + 1)
+
+    const mergedEdges = mergeCollinearTouchingSegments(
+      getSharedBoundaryEdges(port.region1, port.region2),
+    )
+    const longest = mergedEdges.reduce((best, edge) => {
+      const bestLength = Math.hypot(
+        best.end.x - best.start.x,
+        best.end.y - best.start.y,
+      )
+      const edgeLength = Math.hypot(
+        edge.end.x - edge.start.x,
+        edge.end.y - edge.start.y,
+      )
+      return edgeLength > bestLength ? edge : best
+    })
+    const midpoint = segmentMidpoint(longest)
+    expect(pointsEqual({ x: port.d.x, y: port.d.y }, midpoint)).toBe(true)
   }
 
   for (const jumperRegion of graph.jumperRegions) {
@@ -166,7 +259,7 @@ test("ports are only placed on shared edges and jumpers have one port per shared
 
       const key = `${jumperRegion.regionId}::${topRegion.regionId}`
       const actualPortCount = jumperEdgePortCount.get(key) ?? 0
-      expect(actualPortCount).toBe(sharedEdges.length)
+      expect(actualPortCount).toBe(1)
     }
   }
 })
