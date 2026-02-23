@@ -128,8 +128,11 @@ export const createTopLayerPorts = (
       for (const edge of sharedEdges) {
         const edgeLength = getSegmentLength(edge)
         const intervalCount = Math.floor(edgeLength / portSpacing)
-        const portCount = intervalCount - 1
-        if (portCount < 1) continue
+
+        // Always at least one port
+        const portCount = Math.max(1, intervalCount - 1)
+
+        // if (portCount < 1) continue
 
         for (let k = 0; k < portCount; k++) {
           const t = (k + 1) / (portCount + 1)
