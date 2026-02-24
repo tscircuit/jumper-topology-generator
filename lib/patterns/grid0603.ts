@@ -63,6 +63,8 @@ const DEFAULT_0603_GRID_OPTIONS: Omit<
   boundsPadding: 1.2,
   orientation: "horizontal",
   portSpacing: 0.25,
+  maxNeckRatio: 0,
+  minSplitBalanceRatio: 0.2,
 }
 
 export const resolve0603GridOptions = (
@@ -117,6 +119,10 @@ export const resolve0603GridOptions = (
       input.concavityTolerance ?? DEFAULT_0603_GRID_OPTIONS.concavityTolerance,
     clearance: resolvedClearance,
     portSpacing: input.portSpacing ?? DEFAULT_0603_GRID_OPTIONS.portSpacing,
+    maxNeckRatio: input.maxNeckRatio ?? DEFAULT_0603_GRID_OPTIONS.maxNeckRatio,
+    minSplitBalanceRatio:
+      input.minSplitBalanceRatio ??
+      DEFAULT_0603_GRID_OPTIONS.minSplitBalanceRatio,
   }
 
   if (options.cols <= 0 || options.rows <= 0) {
@@ -125,6 +131,18 @@ export const resolve0603GridOptions = (
 
   if (!Number.isFinite(options.portSpacing) || options.portSpacing <= 0) {
     throw new Error("portSpacing must be > 0")
+  }
+
+  if (!Number.isFinite(options.maxNeckRatio) || options.maxNeckRatio < 0) {
+    throw new Error("maxNeckRatio must be >= 0")
+  }
+
+  if (
+    !Number.isFinite(options.minSplitBalanceRatio) ||
+    options.minSplitBalanceRatio < 0 ||
+    options.minSplitBalanceRatio > 0.5
+  ) {
+    throw new Error("minSplitBalanceRatio must be between 0 and 0.5")
   }
 
   return options

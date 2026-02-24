@@ -1,3 +1,4 @@
+export * from "./chokepointElimination"
 export * from "./generate0603JumperHyperGraph"
 export * from "./patterns"
 export * from "./patterns/grid0603"

@@ -60,6 +60,8 @@ Optional options:
 - `concavityTolerance: number` (default: `0.3`)
 - `boundsPadding: number` (default: `1.2`)
 - `portSpacing: number` (default: `0.25`, must be `> 0`)
+- `maxNeckRatio: number` (default: `0`, disabled when `0`; unitless neck-width ratio vs `sqrt(regionArea)`)
+- `minSplitBalanceRatio: number` (default: `0.2`, must be in `[0, 0.5]`)
 
 Behavior notes:
 
@@ -69,6 +71,7 @@ Behavior notes:
   - `pitchY >= jumperBodyHeight + clearance`
 - For `pattern: "staggered"`, if `staggerOffset` is omitted, it defaults to half the jumper size along the stagger axis.
 - Smaller `portSpacing` creates denser top-layer edge ports.
+- When `maxNeckRatio > 0`, top-layer polygons are recursively split along narrow triangulation separators to eliminate chokepoints before ports are generated.
 
 ## Return Shape
 
