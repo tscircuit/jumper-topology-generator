@@ -25,6 +25,8 @@ export interface Generate0603JumperHyperGraphOptions {
   boundsPadding?: number
   orientation?: JumperOrientation
   portSpacing?: number
+  maxNeckRatio?: number
+  minSplitBalanceRatio?: number
 }
 
 export interface Resolved0603GridOptions {
@@ -45,6 +47,8 @@ export interface Resolved0603GridOptions {
   boundsPadding: number
   orientation: JumperOrientation
   portSpacing: number
+  maxNeckRatio: number
+  minSplitBalanceRatio: number
 }
 
 export interface JumperPlacement {

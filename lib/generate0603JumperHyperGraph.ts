@@ -1,4 +1,5 @@
 import { ConvexRegionsSolver, type Rect } from "@tscircuit/find-convex-regions"
+import { splitPolygonsOnChokepoints } from "./chokepointElimination"
 import { generate0603Pattern } from "./patterns"
 import { resolve0603GridOptions } from "./patterns/grid0603"
 import {
@@ -45,7 +46,12 @@ export const generate0603JumperHyperGraph = (
     throw new Error(convexSolver.error ?? "ConvexRegionsSolver failed")
   }
 
-  const topLayerRegions = createTopLayerRegions(convex.regions)
+  const splitTopLayerPolygons = splitPolygonsOnChokepoints(convex.regions, {
+    maxNeckRatio: options.maxNeckRatio,
+    minSplitBalanceRatio: options.minSplitBalanceRatio,
+  })
+
+  const topLayerRegions = createTopLayerRegions(splitTopLayerPolygons)
   const jumperRegions = createJumperRegions(pattern.jumpers, {
     orientation: options.orientation,
     padWidth: options.padWidth,
