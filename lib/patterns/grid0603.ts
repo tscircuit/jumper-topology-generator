@@ -206,5 +206,33 @@ export const generate0603GridPattern = (
       options.boundsPadding,
   }
 
+  if (options.orientation === "vertical") {
+    // Keep the existing outer frame, expanding it for rotated pads if needed.
+    const halfPadWidth = options.padHeight / 2
+    const halfBodyHeight = padOffset + options.padWidth / 2
+    bounds.minX = Math.min(
+      bounds.minX,
+      xStart - halfPadWidth - options.boundsPadding,
+    )
+    bounds.maxX = Math.max(
+      bounds.maxX,
+      xStart +
+        (options.cols - 1) * options.pitchX +
+        halfPadWidth +
+        options.boundsPadding,
+    )
+    bounds.minY = Math.min(
+      bounds.minY,
+      yStart - halfBodyHeight - options.boundsPadding,
+    )
+    bounds.maxY = Math.max(
+      bounds.maxY,
+      yStart +
+        (options.rows - 1) * options.pitchY +
+        halfBodyHeight +
+        options.boundsPadding,
+    )
+  }
+
   return { jumpers, vias, bounds }
 }
